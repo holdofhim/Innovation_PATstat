@@ -13,7 +13,6 @@ gsort psn_name -addlen
 bysort psn_name: replace person_add = person_add[1]
 contract person_id psn_name person_add
 drop _freq
-keep in 1/5000
 
 
 * 1. Parse Company Name
@@ -25,7 +24,7 @@ keep in 1/5000
 	gen tmp_name = subinstr(psn_name, stn_entity2, "", .)
 	replace stn_entity2 = "LTD" if stn_entity2~=""		// LIMITED ==> LTD
 	replace tmp_name = regexr(tmp_name, "[ ]*-[ ]*", "")	// Remove "-" without space
-	replace tmp_name = regexs(2)+regexs(1) if regexm(tmp_name, "(^\(.+\))(.*)")==1	// Put "( )" in the back
+	replace tmp_name = regexs(2)+regexs(1) if regexm(tmp_name, "(^\(.+\))(.*)")	// Put "( )" in the back
 	
 	* 1-2. Parse English name using -stnd_compname- & -std_common_words-
 	* -std_common_words- captures common word variations using regular expression
@@ -34,14 +33,12 @@ keep in 1/5000
 	std_common_words stn_name, p($codepath)
 	replace stn_name = regexr(stn_name, " & ", "&") 		// AB & CD ==> AB&CD
 	gen stn_entity = trim(stn_entity1+" "+stn_entity2)	// Merge two entities
-	*gen needcheck = regexm(stn_name,"( CO )")==1 | regexm(stn_name,"( CORP )")==1	// need to check if " CO " is inside the firm name
-	*if needcheck==1 {
-	*	}
-	keep person_id psn_* stn_name stn_entity
+	keep  person_id psn_name stn_name stn_entity person_add
+	order person_id psn_name stn_name stn_entity person_add
 
-	* 1-3. Manually save some frequent words in common_words_extract.csv (relatively frequent words on the top)
-	* Type 1: industry-specific words (e.g., fashion, eletronics...)
-	* Type 2: general words (e.g., enterprises, industry...)
+	/* 1-3. Manually save some frequent words in csv files (relatively frequent words on the top)
+	* Type 1: sector-specific words (e.g., fashion, eletronics...) ==> common_words_sectoral.csv
+	* Type 2: general words (e.g., enterprises, industry...) ==> common_words_general.csv
 	preserve
 	split stn_name
 	contract stn_name?
@@ -50,25 +47,28 @@ keep in 1/5000
 	contract stn_names
 	drop if strlen(stn_names)<2
 	gsort -_freq
+	*/
 	
-	* 1-4. Parse frequent words and put them in the back
+	* 1-4. Locate the frequent words behind the company-specific names
 	preserve
-	import delim using common_words_extract.csv, clear
-	valuesof v1
-	loc commonword "`r(values)'"
+	foreach x in general sectoral {
+		import delim using common_words_`x'.csv, clear
+		valuesof v1
+		loc `x' "`r(values)'"
+		}
 	restore
 	*noi dis "`commonword'"
 	gen stn_name1 = stn_name
 	gen stn_name2 = ""
 	gen stn_name3 = ""
-	foreach x of loc commonword {
-		replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `x'[A-Z]*$)") & stn_name3==""
-		replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
-		replace stn_name2 = trim(regexs(1)) if regexm(stn_name1,"( `x'[A-Z]*$)") & stn_name3~="" & stn_name2==""	
-		replace stn_name1 = trim(subinword(stn_name1, stn_name2, "", .))
+	foreach y in general sectoral {
+		foreach z of loc `y' {
+			replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
+			replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
+			}
 		}
 	order stn_name1 stn_name2 stn_name3, after(stn_name)
-	*/
+*/
 
 	
 * 2. Parse Address
@@ -85,7 +85,6 @@ keep in 1/5000
 	* 2-2. Parse Zipcode
 	gen stn_zip = trim(regexs(1)) if regexm(person_add, "([0-9][0-9][0-9][-][0-9][0-9][0-9])")	// This format first!
 	replace stn_zip = trim(regexs(1)) if regexm(person_add, "([0-9][0-9][0-9][ ]?[0-9][0-9][0-9])") & stn_zip==""
-	replace stn_zip = zip_code if stn_zip==""
 	replace person_add = trim(subinstr(person_add, stn_zip, "", .))
 	replace stn_zip = regexs(1)+"-"+regexs(2) if regexm(person_add, "([0-9][0-9][0-9])[ ]?([0-9][0-9][0-9])")
 		
@@ -143,7 +142,7 @@ keep in 1/5000
 	
 	
 * 3. Clean data and save the result
-	keep person_id psn_* stn_*
+	keep person_* psn_* stn_*
 	compress
-	*save PAT_ENGname_Standardized, replace
-
+	save PAT_ENGname_Standardized, replace
+*/

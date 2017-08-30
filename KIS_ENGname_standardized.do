@@ -34,22 +34,20 @@ drop if freq>1									// keep only the first obs. if the same firm has multiple
 format business_no %10.0f
 keep  firm_id business_no name_eng address zipcode phone
 order firm_id business_no name_eng address zipcode phone
-
-keep in 1/2000
-save temp, replace
+*keep in 1/10000
 
 
-* 1. Parse Company Name
+/* 1. Parse Company Name
 
 	* 1-1. Parse LTD or LIMITED, treat them as the 2nd entity type
-	use temp, clear
 	replace name_eng = trim(itrim(name_eng))
 	gen stn_entity2 = regexs(1) if regexm(name_eng, "[ .,;](L[I]?[M]?[I]?T[E]?D)")
 	gen tmp_name = subinstr(name_eng, stn_entity2, "", .)
 	replace stn_entity2 = "LTD" if stn_entity2~=""		// LIMITED ==> LTD
 	replace tmp_name = regexr(tmp_name, "[ ]*-[ ]*", "")	// Remove "-" without space
 
-	* 1-2. Parse English name using -stnd_compname-
+	* 1-2. Parse English name using -stnd_compname- & -std_common_words-
+	* -std_common_words- captures common word variations using regular expression
 	stnd_compname tmp_name, gen(stn_name stn_dbaname stn_fkaname stn_entity1 stn_attn) p($codepath)
 	replace stn_name = trim(itrim(stn_name))
 	std_common_words stn_name, p($codepath)
@@ -58,7 +56,9 @@ save temp, replace
 	keep  firm_id firm_id business_no name_eng stn_name stn_entity address zipcode phone
 	order firm_id firm_id business_no name_eng stn_name stn_entity address zipcode phone
 	
-	/* 1-3. Manually save some frequent words in common_words_extract.csv (relatively frequent words on the top)
+	/* 1-3. Manually save some frequent words in csv files (relatively frequent words on the top)
+	* Type 1: sector-specific words (e.g., fashion, eletronics...) ==> common_words_sectoral.csv
+	* Type 2: general words (e.g., enterprises, industry...) ==> common_words_general.csv
 	split stn_name
 	contract stn_name?
 	keep stn_name?
@@ -68,21 +68,23 @@ save temp, replace
 	gsort -_freq
 	*/
 	
-	* 1-4. Parse frequent words and put them in the back
+	* 1-4. Locate the frequent words behind the company-specific names
 	preserve
-	import delim using common_words_extract.csv, clear
-	valuesof v1
-	loc commonword "`r(values)'"
+	foreach x in general sectoral {
+		import delim using common_words_`x'.csv, clear
+		valuesof v1
+		loc `x' "`r(values)'"
+		}
 	restore
 	*noi dis "`commonword'"
 	gen stn_name1 = stn_name
 	gen stn_name2 = ""
 	gen stn_name3 = ""
-	foreach x of loc commonword {
-		replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `x'[A-Z]*$)") & stn_name3==""
-		replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
-		replace stn_name2 = trim(regexs(1)) if regexm(stn_name1,"( `x'[A-Z]*$)") & stn_name3~="" & stn_name2==""	
-		replace stn_name1 = trim(subinword(stn_name1, stn_name2, "", .))
+	foreach y in general sectoral {
+		foreach z of loc `y' {
+			replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
+			replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
+			}
 		}
 	order stn_name1 stn_name2 stn_name3, after(stn_name)
 */
@@ -159,7 +161,7 @@ save temp, replace
 */
 
 	
-* 3. Clean data and save the result
+/* 3. Clean data and save the result
 	keep person_id psn_* stn_*
 	compress
 	*save KIS_ENGname_Standardized, replace 
