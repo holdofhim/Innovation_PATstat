@@ -61,13 +61,17 @@ drop _freq
 	gen stn_name1 = stn_name
 	gen stn_name2 = ""
 	gen stn_name3 = ""
-	foreach y in general sectoral {
-		foreach z of loc `y' {
-			replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
-			replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
-			}
+	foreach z of loc general {
+		replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
+		replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
 		}
-	order stn_name1 stn_name2 stn_name3, after(stn_name)
+	foreach z of loc sectoral {
+		replace stn_name2 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name2==""
+		replace stn_name1 = trim(subinword(stn_name1, stn_name2, "", .))
+		}
+	replace stn_name2 = trim(itrim(stn_name2+" "+stn_name3))
+	drop stn_name stn_name3
+	order stn_name1 stn_name2, after(psn_name)
 */
 
 	
@@ -122,7 +126,7 @@ drop _freq
 	* 2-6. Parse the remaining city-level address using District_Si.csv
 	preserve
 	import delim using District_Si.csv, clear
-	valuesof v1
+	valuesof v3
 	loc si "`r(values)'"
 	restore
 	qui foreach x of loc si {
@@ -142,7 +146,7 @@ drop _freq
 	
 	
 * 3. Clean data and save the result
-	keep person_* psn_* stn_*
+	keep person_id psn_name stn_*
 	compress
 	save PAT_ENGname_Standardized, replace
 */

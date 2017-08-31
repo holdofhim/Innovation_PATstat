@@ -23,18 +23,19 @@ cd D:\KDI\Innovation\Data
 	save Admin_Districts_Classification_170101, replace
 	*/
 	
-/* 3. Generate Si and save the result in csv file
+* 3. Generate Si and save the result in csv file
 	use Admin_Districts_Classification_170101, clear
 	keep if district_id<100000
 	replace district_eng = upper(district_eng)
 	drop if regexm(district_eng, "-GU[N]?|-DO")
 	replace district_eng = subinstr(district_eng, "-SI","",.)
-	contract district_eng
+	contract district_*
 	drop _freq
+	replace district_kor = regexr(district_kor, "광역시|특별시", "")
 	export delim using District_Si.csv, novarnames replace
 	*/
 
-* 4. Generate Gun and save the result in csv file
+/* 4. Generate Gun and save the result in csv file
 	use Admin_Districts_Classification_170101, clear
 	keep if district_id<100000
 	replace district_eng = upper(district_eng)

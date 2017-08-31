@@ -21,6 +21,7 @@ cd D:\KDI\Innovation\Data
 	*save KIS_MFC_FirmList, replace
 */
 
+*
 use KED_Firmlist_wPatents, clear
 gen firm_id = "KED"+string(ked_id)
 noi merge 1:m business_no using KIS_All_FirmList, update replace
@@ -31,19 +32,18 @@ keep if _m~=2 | inrange(type,1,4)						// keep only corporate companies
 sort business_no listed type 
 bysort business: gen freq = _n
 drop if freq>1									// keep only the first obs. if the same firm has multiple firm_ids
-format business_no %10.0f
-keep  firm_id business_no name_eng address zipcode phone
-order firm_id business_no name_eng address zipcode phone
-*keep in 1/10000
+keep  firm_id business_no name_kor name_eng address zipcode
+order firm_id business_no name_kor name_eng address zipcode
+*/
 
 
-/* 1. Parse Company Name
+* 1. Parse Company Name
 
 	* 1-1. Parse LTD or LIMITED, treat them as the 2nd entity type
 	replace name_eng = trim(itrim(name_eng))
-	gen stn_entity2 = regexs(1) if regexm(name_eng, "[ .,;](L[I]?[M]?[I]?T[E]?D)")
+	gen stn_entity2 = regexs(1) if regexm(name_eng, "([ .,;]L[I]?[M]?[I]?T[E]?D)")
 	gen tmp_name = subinstr(name_eng, stn_entity2, "", .)
-	replace stn_entity2 = "LTD" if stn_entity2~=""		// LIMITED ==> LTD
+	replace stn_entity2 = "" if stn_entity2~=""				    // Remove LIMITED
 	replace tmp_name = regexr(tmp_name, "[ ]*-[ ]*", "")	// Remove "-" without space
 
 	* 1-2. Parse English name using -stnd_compname- & -std_common_words-
@@ -53,8 +53,8 @@ order firm_id business_no name_eng address zipcode phone
 	std_common_words stn_name, p($codepath)
 	replace stn_name = regexr(stn_name, " & ", "&") 		// AB & CD ==> AB&CD
 	gen stn_entity = trim(stn_entity1+" "+stn_entity2)	// Merge two entities
-	keep  firm_id firm_id business_no name_eng stn_name stn_entity address zipcode phone
-	order firm_id firm_id business_no name_eng stn_name stn_entity address zipcode phone
+	keep  firm_id firm_id business_no name_* stn_name stn_entity address zipcode
+	order firm_id firm_id business_no name_* stn_name stn_entity address zipcode
 	
 	/* 1-3. Manually save some frequent words in csv files (relatively frequent words on the top)
 	* Type 1: sector-specific words (e.g., fashion, eletronics...) ==> common_words_sectoral.csv
@@ -80,79 +80,76 @@ order firm_id business_no name_eng address zipcode phone
 	gen stn_name1 = stn_name
 	gen stn_name2 = ""
 	gen stn_name3 = ""
-	foreach y in general sectoral {
-		foreach z of loc `y' {
-			replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
-			replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
-			}
+	foreach z of loc general {
+		replace stn_name3 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name3==""
+		replace stn_name1 = trim(subinword(stn_name1, stn_name3, "", .))
 		}
-	order stn_name1 stn_name2 stn_name3, after(stn_name)
+	foreach z of loc sectoral {
+		replace stn_name2 = trim(regexs(1)) if regexm(stn_name1,"( `z'[A-Z]*$)") & stn_name2==""
+		replace stn_name1 = trim(subinword(stn_name1, stn_name2, "", .))
+		}
+	replace stn_name2 = trim(itrim(stn_name2+" "+stn_name3))
+	drop stn_name stn_name3
+	order stn_name1 stn_name2, after(name_eng)
 */
 
 	
 * 2. Parse Address
 
 	* 2-1. Remove Dong, Myeon, Eup, and some other redundant names
-	replace person_add = subinstr(person_add, " -" ,"-", .)
-	replace person_add = subinstr(person_add, "- " ,"-", .)
-	replace person_add = subinstr(person_add, "--" ,"-", .)
-	replace person_add = regexr(person_add, "METRO[A-Z]*[ ,]|UNIV[A-Z]*[ ,]|INDUS[A-Z]*[ ,]", "")	
-	replace person_add = regexr(person_add, "[GK]WANGY[EOU]?[OU][A-Z]+[ ,]|COMPL[A-Z]*[ ,]|PARK[ ,]", "")	
-	replace street = regexs(1)+regexs(2)+regexs(3) if regexm(person_add, "(^.*)([D[OU]NG|MY[EO]?[OU]N|[E]?U[BP]|RO|[GK]A)([ ,]+)")
-	replace person_add = trim(subinstr(person_add, street, "", .))
+	gen kis_add = trim(itrim(address))
+	replace kis_add = subinstr(kis_add, " -" ,"-", .)
+	replace kis_add = subinstr(kis_add, "- " ,"-", .)
+	replace kis_add = regexr(kis_add, "METRO[A-Z]*[ ,]|UNIV[A-Z]*[ ,]|INDUS[A-Z]*[ ,]", "")	
+	replace kis_add = regexr(kis_add, "[GK]WANGY[EOU]?[OU][A-Z]+[ ,]|COMPL[A-Z]*[ ,]|PARK[ ,]", "")	
+	gen dongeup = regexs(1)+regexs(2)+regexs(3) if regexm(kis_add, "(^.*)([D[OU]NG|MY[EO]?[OU]N|[E]?U[BP]|RO|[GK]A)([ ,]+)")
+	replace kis_add = trim(subinstr(kis_add, dongeup, "", .))
 	
-	* 2-2. Parse Zipcode
-	gen stn_zip = trim(regexs(1)) if regexm(person_add, "([0-9][0-9][0-9][-][0-9][0-9][0-9])")	// This format first!
-	replace stn_zip = trim(regexs(1)) if regexm(person_add, "([0-9][0-9][0-9][ ]?[0-9][0-9][0-9])") & stn_zip==""
-	replace stn_zip = zip_code if stn_zip==""
-	replace person_add = trim(subinstr(person_add, stn_zip, "", .))
-	replace stn_zip = regexs(1)+"-"+regexs(2) if regexm(person_add, "([0-9][0-9][0-9])[ ]?([0-9][0-9][0-9])")
+	* 2-2. Standardize Zipcode
+	gen stn_zip = trim(itrim(zipcode))
+	replace stn_zip = regexs(1)+"-"+regexs(2) if regexm(stn_zip, "([0-9][0-9][0-9])[ ]?([0-9][0-9][0-9])")
 		
 	* 2-3. Parse Gu or Gun
-	gen GuGun = trim(regexs(1)) if regexm(person_add, "([A-Z]+[ -]?[1-9]?[ -][GKQ]U[N]?)[ ,]?")
-	replace GuGun = trim(regexs(1)) if regexm(person_add, "([A-Z]+[ -]?[1-9]?[GKQ]U[N]?)[ ,]?") & GuGun==""
-	replace person_add = trim(subinstr(person_add, GuGun, "", .))
+	gen GuGun = trim(regexs(1)) if regexm(kis_add, "([A-Z]+[ -]?[1-9]?[ -][GK]U[N]?)[ ,]?")
+	replace GuGun = trim(regexs(1)) if regexm(kis_add, "([A-Z]+[ -]?[1-9]?[GK]U[N]?)[ ,]?") & GuGun==""
+	replace kis_add = trim(subinstr(kis_add, GuGun, "", .))
 	replace GuGun = subinstr(GuGun, " ", "", .)
 	replace GuGun = subinstr(GuGun, "-", "", .)
-	replace GuGun = regexr(GuGun, "[GKQ]U$", "-GU")
-	replace GuGun = regexr(GuGun, "[GKQ]UN$", "-GUN")
+	replace GuGun = regexr(GuGun, "[GK]U$", "-GU")
+	replace GuGun = regexr(GuGun, "[GK]UN$", "-GUN")
 			
 	* 2-4. Parse Si
-	gen Si = trim(regexs(1)+regexs(2)) if regexm(person_add, "([A-Z]+)(-S[H]?I|-CITY)")
-	replace person_add = trim(itrim(subinstr(person_add, ",", " ", .)))
-	replace Si = trim(regexs(1)) if regexm(person_add, "([A-Z]+[ -]?S[H]?I)([ ,])") & Si==""
-	replace Si = trim(regexs(1)) if regexm(person_add, "([A-Z]+[ -]?S[H]?I$)") & Si==""	// double check
-	replace Si = trim(regexs(1)) if regexm(person_add, "([A-Z]+[ -]?CI[T]?[Y]?)") & Si==""	
-	replace person_add = trim(subinstr(person_add, Si, "", .))
-	replace Si = regexr(Si, "[ -]?S[H]?I$|[ -]?CI[T]?[Y]?$", "")
+	gen Si = trim(regexs(1)+regexs(2)) if regexm(kis_add, "([A-Z]+)(-SI|-CITY)")
+	replace kis_add = trim(itrim(subinstr(kis_add, ",", " ", .)))
+	replace Si = trim(regexs(1)) if regexm(kis_add, "([A-Z]+[ -]?SI)([ ,])") & Si==""
+	replace Si = trim(regexs(1)) if regexm(kis_add, "([A-Z]+[ -]?SI$)") & Si==""	// double check
+	replace Si = trim(regexs(1)) if regexm(kis_add, "([A-Z]+[ -]?CITY)") & Si==""	
+	replace kis_add = trim(subinstr(kis_add, Si, "", .))
+	replace Si = regexr(Si, "[ -]?SI$|[ -]?CITY$", "")
 		
 	* 2-5. Parse Do
-	gen Do = trim(regexs(1)) if regexm(person_add, "([A-Z-]+[ ]?DO$)")
-	replace person_add = trim(itrim(person_add))
-	replace Do = trim(regexs(1)) if regexm(person_add, "([A-Z-]+[ ]?[DG]O$)") & Do==""	
-	replace Do = trim(regexs(1)) if regexm(person_add, "([A-Z-]+[ ]?DO)") & Do==""	// double check
-	replace Do = trim(regexs(1)) if regexm(person_add, "([A-Z-]+[ ]?PRO[BV]IN[CS]E)") & Do==""	
-	replace Do = trim(regexs(1)) if regexm(person_add, "([A-Z-]+[ ]?BUK$|[A-Z]+[ ]?NAM$|[A-Z]+[ ]?GI$)") & Do==""	
-	replace person_add = trim(subinstr(person_add, Do, "", .))
-	replace Do = subinstr(Do, " ", "", .)
-	replace Do = subinstr(Do, "-", "", .)
-	replace Do = regexr(Do, "[DG]O$|PRO[BV]IN[CS]E$", "-DO")
+	gen Do = trim(regexs(1)) if regexm(kis_add, "([A-Z-]+[ ]?DO$)")
+	replace kis_add = trim(itrim(kis_add))
+	replace Do = trim(regexs(1)) if regexm(kis_add, "([A-Z-]+[ ]?[D]O$)") & Do==""	
+	replace Do = trim(regexs(1)) if regexm(kis_add, "([A-Z-]+[ ]?DO)") & Do==""	// double check
+	replace Do = trim(regexs(1)) if regexm(kis_add, "([A-Z-]+[ ]?BUK$|[A-Z]+[ ]?NAM$|[A-Z]+[ ]?GI$)") & Do==""	
+	replace kis_add = trim(subinstr(kis_add, Do, "", .))
+	replace Do = regexr(Do, " |-", "")
+	replace Do = regexr(Do, "DO$", "-DO")
 	replace Do = regexs(1)+"-DO" if regexm(Do, "(.*BUK$|.*NAM$|.*GI$)")
 	
 	* 2-6. Parse the remaining city-level address using District_Si.csv
 	preserve
-	import delim using District_Si.csv, clear
-	valuesof v1
-	loc si "`r(values)'"
+	import delim using District_Si.csv, clear encoding("utf-8")
+	qui sum v1
+	loc N = `r(N)'
+	tempfile city
+	save `city'
 	restore
-	qui foreach x of loc si {
-		replace Si = regexs(1) if regexm(person_add, "(`x')") & Si==""
-		tempvar cityname
-		gen cityname = "`x'"
-		jarowinkler person_add cityname
-		replace Si = person_add if jarowinkler>0.8 & Si==""
-		replace person_add = trim(subinstr(person_add, Si, "", .))
-		drop cityname jarowinkler
+	merge 1:1 _n using `city', nogen
+	qui forval i=1/`N' {
+		replace Si = v3[`i'] if regexm(kis_add, v3[`i']) & Si==""		// v3= cityname in English
+		replace Si = v3[`i'] if regexm(kis_add, v2[`i']) & Si==""		// v2= cityname in Korean
 		}	
 	
 	* 2-7. Generate one address based on Si, Gun, Gu, & Do
@@ -161,9 +158,9 @@ order firm_id business_no name_eng address zipcode phone
 */
 
 	
-/* 3. Clean data and save the result
-	keep person_id psn_* stn_*
+* 3. Clean data and save the result
+	keep firm_id business_no name_kor stn_*
 	compress
-	*save KIS_ENGname_Standardized, replace 
+	save KIS_ENGname_Standardized, replace 
 */
 
