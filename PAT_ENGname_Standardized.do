@@ -148,5 +148,10 @@ drop _freq
 * 3. Clean data and save the result
 	keep person_id psn_name stn_*
 	compress
+	save PAT_Matching_FirmList, replace
+	contract psn_name stn_*
+	drop _f
+	gen fid_pat=_n
+	order fid_pat
 	save PAT_ENGname_Standardized, replace
 */

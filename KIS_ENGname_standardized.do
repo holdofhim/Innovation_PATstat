@@ -159,8 +159,13 @@ order firm_id business_no name_kor name_eng address zipcode
 
 	
 * 3. Clean data and save the result
-	keep firm_id business_no name_kor stn_*
+	keep firm_id business_no name_* stn_*
 	compress
+	save KIS_Matching_FirmList, replace
+	contract name_eng stn_*
+	drop _f
+	gen fid_kis=_n
+	order fid_kis
 	save KIS_ENGname_Standardized, replace 
 */
 
