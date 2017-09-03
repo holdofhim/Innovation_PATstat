@@ -39,3 +39,32 @@ foreach x in "eng" "zip" "add" "phone" {
 	}
 drop ked_eng-ked_phone
 format business_no %10.0f
+
+
+
+
+clear all
+cap log close
+set more off
+cd D:\KDI\Innovation\Data
+
+use KED_Firmlist_wPatents, clear
+format ked_id %12.0f
+gen firm_id = "KED"+string(ked_id)
+noi merge 1:m business_no using KIS_All_FirmList, update replace
+drop if ksic9==. | ksic9>94000 | inrange(ksic9,80000,90000)	// drop if GOV., UNIV., HOSP., & NPO
+keep if _m~=2 | inrange(ksic9,10000,34000)	// keep only manufacturing companies
+keep if _m~=2 | inrange(listed,10,40)				// keep only existing companies
+keep if _m~=2 | inrange(type,1,4)						// keep only corporate companies
+sort business_no listed type 
+bysort business: gen freq = _n
+drop if freq>1									// keep only the first obs. if the same firm has multiple firm_ids
+keep  firm_id business_no name_kor name_eng address zipcode
+order firm_id business_no name_kor name_eng address zipcode
+
+drop if regexm(name_eng, "^[0-9A-Z(]+")
+keep business_no name_kor name_eng address
+replace name_eng=""
+replace address=""
+export excel using Firms_ENGname_Missing.xlsx, replace first(var)
+

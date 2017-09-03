@@ -16,6 +16,8 @@ cd D:\KDI\Innovation\Data
 	use KIS_ENGname_Standardized, clear
 	reclink2 stn_name1 stn_name2 stn_entity stn_address stn_zip using PAT_ENGname_Standardized, ///
 					 idm(fid_kis) idu(fid_pat) wmatch(10 8 4 6 2) gen(score) minscore(0.8) many npairs(2)
+	gsort -score
+	order psn_name, after(name_eng)
 	compress
 	save KIS_PAT_merged_forreview_$version, replace
 	*/ 

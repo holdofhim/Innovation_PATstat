@@ -23,6 +23,7 @@ cd D:\KDI\Innovation\Data
 
 *
 use KED_Firmlist_wPatents, clear
+format ked_id %12.0f
 gen firm_id = "KED"+string(ked_id)
 noi merge 1:m business_no using KIS_All_FirmList, update replace
 drop if ksic9==. | ksic9>94000 | inrange(ksic9,80000,90000)	// drop if GOV., UNIV., HOSP., & NPO
