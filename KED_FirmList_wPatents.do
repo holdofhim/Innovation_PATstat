@@ -47,3 +47,9 @@ format business_no %10.0f
 order utilpat, after(phone)
 replace name_eng = upper(name_eng)
 save KED_Firmlist_wPatents, replace
+
+* Insert some missing English names
+import excel using Firms_ENGname_Missing_Fillout.xlsx, clear firstrow
+merge 1:1 business_no using KED_Firmlist_wPatents, update nogen
+sort business_no
+save KED_Firmlist_wPatents, replace
