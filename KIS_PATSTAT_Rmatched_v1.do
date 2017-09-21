@@ -2,10 +2,9 @@
 clear all
 cap log close
 set more off
-gl v "v1"
 
 cd D:\KDI\Innovation\Data
-import excel using KIS_PATSTAT_Rmatched_$v.xlsx, first clear
+import excel using KIS_PATSTAT_Rmatched_v1.xlsx, first clear
 rename result*$KISname * 
 rename *KISname KISname_*
 
