@@ -27,9 +27,7 @@ format ked_id %12.0f
 gen firm_id = "KED"+string(ked_id)
 noi merge 1:m business_no using KIS_All_FirmList, update replace
 drop if ksic9==. | ksic9>94000 | inrange(ksic9,80000,90000)	// drop if GOV., UNIV., HOSP., & NPO
-keep if _m~=2 | inrange(ksic9,10000,34000)	// keep only manufacturing companies
-keep if _m~=2 | inrange(listed,10,40)				// keep only existing companies
-keep if _m~=2 | inrange(type,1,4)						// keep only corporate companies
+keep if _m~=2 | inrange(type,1,4)														// keep only corporate companies
 sort business_no listed type 
 bysort business: gen freq = _n
 drop if freq>1									// keep only the first obs. if the same firm has multiple firm_ids
@@ -46,7 +44,7 @@ order firm_id business_no name_kor name_eng address zipcode
 	gen tmp_name = subinstr(name_eng, stn_entity2, "", .)
 	replace stn_entity2 = "" if stn_entity2~=""				    // Remove LIMITED
 	replace tmp_name = regexr(tmp_name, "^\(.*\)", "")		// Remove contents in ()
-	replace tmp_name = regexr(tmp_name, "\(.*\)$", "")		// Remove contents in ()	
+	replace tmp_name = regexr(tmp_name, "\(.*\)$", "")		// Remove contents in ()
 	replace tmp_name = regexr(tmp_name, "[ ]*-[ ]*", "")	// Remove "-" without space
 
 	* 1-2. Parse English name using -stnd_compname- & -std_common_words-
@@ -162,13 +160,11 @@ order firm_id business_no name_kor name_eng address zipcode
 
 	
 * 3. Clean data and save the result
-	keep firm_id business_no name_* stn_*
-	compress
-	save KIS_Matching_FirmList, replace
 	contract name_eng stn_*
+	compress
 	drop _f
 	gen fid_kis=_n
 	order fid_kis
-	save KIS_ENGname_Standardized, replace 
+	save KIS_ENGname_Standardized_r2, replace 
 */
 

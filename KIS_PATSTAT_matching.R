@@ -2,7 +2,7 @@
 
 rm(list = ls())                     # Remove all
 setwd("D:/KDI/Innovation/Data/")    # Working Directory
-version <- "v1"
+version <- "r2"
 
 library(rio)
 library(openxlsx)
@@ -54,11 +54,11 @@ addWorksheet(wb, "Matched_Sample")
 
 
 # Import data
-KISname <- import("KIS_ENGname_Standardized.dta")
+KISname <- import(paste0("KIS_ENGname_Standardized_",version,".dta"))
 stdname.KIS <- trimws(paste0(trimws(paste0(KISname[,3]," ",KISname[,4]))," ",KISname[,5]))
 stdname.KIS <- stri_unique(stdname.KIS)
 
-PATname <- import("PAT_ENGname_Standardized.dta")
+PATname <- import(paste0("PAT_ENGname_Standardized_",version,".dta"))
 stdname.PAT <- trimws(paste0(trimws(paste0(PATname[,3]," ",PATname[,4]))," ",PATname[,5]))
 writeDataTable(wb, 1, cbind(PATname, stdname.PAT))
 
