@@ -1,70 +1,11 @@
 
 clear all
-cap log close
-set more off
-gl path "c:\KDI\Innovation\Data"
-cd $path
-
-use Patent_registration_2002-2015, clear
-collapse (sum)patent, by(kedid)
-drop if patent==0
-rename kedid ked_id
-
-joinby ked_id using KED_Firmlist_withPatents
-format business_no %10.0f
-sort business_no ked_id
-bysort business: gen freq = _n
-drop if freq>1			// keep only the first obs. if the same firm has multiple ked_ids
-
-noi merge 1:1 business_no using KIS_All_FirmList, update replace
-drop if _merge==2
-drop _merge freq
-
-replace ked_eng = kis_eng if ked_eng=="" & kis_eng~=""
-
-
-
-
-use KIS_All_FirmList, clear
-gen ksic9_2d = int(ksic9_5d/1000)
-order ksic9_2d, before(ksic9_5d)
-keep if inrange(ksic9_2d,10,33) | inrange(ksic9_2d,60,63) | inrange(ksic9_2d,70,73) 
-keep if inrange(listed,10,40)					// keep only existing companies
-keep if inrange(type,1,4)							// keep only corporate companies
-drop if kis_eng==""
-
-noi merge 1:1 business_no using KED_Firmlist_wPatents, nogen
-foreach x in "eng" "zip" "add" "phone" {
-	replace kis_`x'=ked_`x' if kis_`x'==""
-	}
-drop ked_eng-ked_phone
-format business_no %10.0f
-
-
-
-
-clear all
-cap log close
-set more off
 cd D:\KDI\Innovation\Data
 
-use KED_Firmlist_wPatents, clear
-format ked_id %12.0f
-gen firm_id = "KED"+string(ked_id)
-noi merge 1:m business_no using KIS_All_FirmList, update replace
-drop if ksic9==. | ksic9>94000 | inrange(ksic9,80000,90000)	// drop if GOV., UNIV., HOSP., & NPO
-keep if _m~=2 | inrange(ksic9,10000,34000)	// keep only manufacturing companies
-keep if _m~=2 | inrange(listed,10,40)				// keep only existing companies
-keep if _m~=2 | inrange(type,1,4)						// keep only corporate companies
-sort business_no listed type 
-bysort business: gen freq = _n
-drop if freq>1									// keep only the first obs. if the same firm has multiple firm_ids
-keep  firm_id business_no name_kor name_eng address zipcode
-order firm_id business_no name_kor name_eng address zipcode
-
-drop if regexm(name_eng, "^[0-9A-Z(]+")
-keep business_no name_kor name_eng address
-replace name_eng=""
-replace address=""
-export excel using Firms_ENGname_Missing.xlsx, replace first(var)
-
+import excel using ReviewList\45000\KIS_PATSTAT_Matchinglist_45000.xlsx, firstrow
+merge n:1 psn_name using N_Patents_04_15
+keep if _m==3
+gsort -n_patents -n_cites
+*drop if n_patents==1 & n_cites==0
+*replace matched_name="" if matched_name=="0"
+count if matched_name==""
