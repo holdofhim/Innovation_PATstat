@@ -51,14 +51,13 @@ clusterEvalQ(cl, library(rvest))
 clusterEvalQ(cl, library(magrittr))
 clusterExport(cl, c('url','pub_nr','urlexists'))
 
-system.time ({ firmnames_kr <- parLapply(cl, pub_nr[urlexists==TRUE],
+system.time ({ firmnames_kr <- parSapply(cl, pub_nr[urlexists==TRUE],
                                          function(x) {
                                                paste0(url,x) %>%
                                                      read_html(.) %>%
                                                      html_nodes("dd") %>%
                                                      .[which(substr(.,15,30)=="assigneeOriginal")] %>%
-                                                     html_text %>%
-                                                     c(x, .)
+                                                     html_text
                                          } ) })
 
 stopCluster(cl)   # Stop Cluster
@@ -70,36 +69,47 @@ save(firmnames_kr, file="firmnames_04-15.Rdata")
 
 n_cols <- sapply(firmnames_kr, function(x) length(as.vector(x))) %>% max      # max number of publn_numbr+firmnames
 pub_nr_fname_kr <- sapply(firmnames_kr, function(x) c(as.vector(x), rep("",n_cols-length(x)))) %>% t()
-write.csv(pub_nr_fname_kr, "D:/KDI/Innovation/Data/PATSTAT/firmnames_04-15.csv", row.names=FALSE)
+write.csv(pub_nr_fname_kr, "D:/KDI/Innovation/Data/PATSTAT/firmnames_04-15.csv")
 
 
 
-## Alternative Method: Divide sample by grid size and do the same parallel computing
+# # Alternative Method: Divide sample by grid size and do the same parallel computing
+# 
+# 
+# n_cores <- detectCores()-1
+# cl <- makeCluster(n_cores)
+# 
+# clusterEvalQ(cl, library(RCurl))
+# clusterEvalQ(cl, library(rvest))
+# clusterEvalQ(cl, library(magrittr))
+# clusterExport(cl, c('url','pub_nr'))
 # 
 # n_obs  <- length(pub_nr)
 # grid   <- 100
 # n_rep  <- round(n_obs/grid)+1
-# initial <- 0
-# firmnames_kr <- {}
+# urlexists_kr <- data.frame()
+# firmnames_kr <- data.frame()
 # 
 # for (i in 1:n_rep) {
-#       
+# 
 #       if (i<n_rep) publn_numbr <- pub_nr[((i-1)*grid+1):(i*grid)]
 #       else publn_numbr <- pub_nr[((i-1)*grid+1):n_obs]
-#       
+# 
 #       urlexists <- parSapply(cl, paste0(url,publn_numbr), url.exists)
-#       firmname_kr <- parLapply(cl, publn_numbr[urlexists==TRUE],
+#       firmname_kr <- parSapply(cl, publn_numbr[urlexists==TRUE],
 #                                function(x) {
 #                                      paste0(url,x) %>%
 #                                            read_html(.) %>%
 #                                            html_nodes("dd") %>%
 #                                            .[which(substr(.,15,30)=="assigneeOriginal")] %>%
-#                                            html_text %>%
-#                                            c(x, .) 
-#                                } 
+#                                            html_text
+#                                }
 #       )
+#       urlexists_kr <- rbind(urlexists_kr, urlexists)
 #       firmnames_kr <- rbind(firmnames_kr, firmname_kr)
 # }
+# 
+# stopCluster(cl)   # Stop Cluster
 
 
 

@@ -1,44 +1,18 @@
 
 clear all
-cap log close
-set more off
-gl codepath "D:\KDI\Innovation\Code"
 cd D:\KDI\Innovation\Data
 
-/* 0. Prepare KIS data
-	use D:\KDI\JMDATA\finaldata\gaeyo2008, clear
-	append using D:\KDI\JMDATA\finaldata\gaeyo2017
-	contract *
-	rename (upchecd-upche_eng addr1_eng zipcd1 tel1 sanupcd) ///
-				 (firm_id name_kor name_eng address zipcode phone ksic9_5d)
-	destring *_no listed type ksic9, replace force
-	replace address = upper(address)
-	sort business_no firm_id
-	keep  firm_id business ksic9 listed type name_kor name_eng address zipcode phone
-	order firm_id business ksic9 listed type name_kor name_eng address zipcode phone
-	save KIS_All_FirmList, replace
-	*keep if inrange(ksic9,10000,34000)	// keep only manufacturing firms
-	*save KIS_MFC_FirmList, replace
-*/
-
-*
 use KED_Firmlist_wPatents, clear
 format ked_id %12.0f
 gen firm_id = "KED"+string(ked_id)
 noi merge 1:m business_no using KIS_All_FirmList, update replace
-drop if ksic9==. | ksic9>94000 | inrange(ksic9,80000,90000)	// drop if GOV., UNIV., HOSP., & NPO
-keep if _m~=2 | inrange(ksic9,10000,34000)	// keep only manufacturing companies
-keep if _m~=2 | inrange(listed,10,40)				// keep only existing companies
-keep if _m~=2 | inrange(type,1,4)						// keep only corporate companies
 sort business_no listed type 
-bysort business: gen freq = _n
-drop if freq>1									// keep only the first obs. if the same firm has multiple firm_ids
 keep  firm_id business_no name_kor name_eng address zipcode
 order firm_id business_no name_kor name_eng address zipcode
-*/
 
 
-* 1. Parse Company Name
+
+** 1. Standardize English Firm Name
 
 	* 1-1. Parse LTD or LIMITED, treat them as the 2nd entity type
 	replace name_eng = trim(itrim(name_eng))
@@ -96,8 +70,9 @@ order firm_id business_no name_kor name_eng address zipcode
 	order stn_name1 stn_name2, after(name_eng)
 */
 
+
 	
-* 2. Parse Address
+** Standardize English Address
 
 	* 2-1. Remove Dong, Myeon, Eup, and some other redundant names
 	gen kis_add = trim(itrim(address))
@@ -160,15 +135,46 @@ order firm_id business_no name_kor name_eng address zipcode
 	replace stn_address = trim(Do+" "+GuGun) if stn_address==""
 */
 
+
+** 3. Standardize Korean Firm Name
+
+  * 3-1. Parse entity1
+	gen entity1 = regexs(1) if regexm(name_kor, "(주식회사|\(주\)|유한회사|\(유\)|합자회사|합명회사|\(합\))")
+	replace name_kor = subinstr(name_kor, entity1, "", .)
+	replace entity1 = trim(itrim(entity1))
+	replace name_kor = trim(itrim(name_kor))
+
+	* 3-2. Parse entity2: 
+	gen entity2 = regexs(1) if regexm(name_kor, ///
+		"((농업|농업회사|어업|어업회사|영농|영농조합|영어조합|사단|재단|한국)법인$|\(사\)|\(자\)|\(재\))")
+	replace name_kor = subinstr(name_kor, en	tity2, "", .)
+	replace entity2 = trim(itrim(entity2))
+	replace name_kor = regexr(name_kor,"\(.*\)","")
+	replace name_kor = subinstr(name_kor, " ", "", .)
+	replace name_kor = trim(itrim(name_kor))
+
+	gen entity= trim(entity2+" "+entity1) if entity1~="" | entity2~=""
+	drop entity?
+*/
 	
-* 3. Clean data and save the result
-	keep firm_id business_no name_* stn_*
+	
+** 4. Clean data and save the result
+
+	* 4-1. Save Standardized Matching Firm List
 	compress
 	save KIS_Matching_FirmList, replace
+	
+	* 4-2. Save English Names
+	preserve
 	contract name_eng stn_*
 	drop _f
 	gen fid_kis=_n
 	order fid_kis
 	save KIS_ENGname_Standardized, replace 
-*/
 
+	* 4-3. Save Korean Names
+	preserve
+	contract name_kor
+	drop _f
+	save KIS_KORname_Standardized, replace
+	restore
