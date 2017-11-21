@@ -2,20 +2,26 @@
 clear all
 cap log close
 set more off
-gl codepath "D:\KDI\Innovation\Code"
 cd D:\KDI\Innovation\Data
 
-import delimited PATSTAT_KOR_FirmList_wAddress.csv, clear
-replace psn_name = trim(itrim(upper(psn_name)))
-replace person_add = trim(itrim(upper(person_add)))
-gen addlen = strlen(person_add)
-gsort psn_name -addlen
-bysort psn_name: replace person_add = person_add[1]
-contract person_id psn_name person_add
-drop _freq
+gl codepath "D:\KDI\Innovation\Code"
+gl PATSTAT_Input "person_id_group_04-15"	// Limit the sample from 2004 to 2015
 
 
-* 1. Parse Company Name
+** 0. Import PATSTAT data
+
+	use PATSTAT\table\dta\${PATSTAT_Input}
+	keep psn_name person_id person_add
+	replace psn_name = trim(itrim(upper(psn_name)))
+	replace person_add = trim(itrim(upper(person_add)))
+	gen addlen = strlen(person_add)
+	gsort psn_name -addlen
+	bysort psn_name: replace person_add = person_add[1]
+	contract psn_name person_add
+	drop _freq
+
+
+** 1. Standardize PATSTAT Firm Name
 
 	* 1-1. Parse LTD or LIMITED, treat them as the 2nd entity type
 	replace psn_name = strupper(psn_name)							// Capitalize
@@ -33,8 +39,8 @@ drop _freq
 	std_common_words stn_name, p($codepath)
 	replace stn_name = regexr(stn_name, " & ", "&") 		// AB & CD ==> AB&CD
 	gen stn_entity = trim(stn_entity1+" "+stn_entity2)	// Merge two entities
-	keep  person_id psn_name stn_name stn_entity person_add
-	order person_id psn_name stn_name stn_entity person_add
+	keep  psn_name stn_name stn_entity person_add
+	order psn_name stn_name stn_entity person_add
 
 	/* 1-3. Manually save some frequent words in csv files (relatively frequent words on the top)
 	* Type 1: sector-specific words (e.g., fashion, eletronics...) ==> common_words_sectoral.csv
@@ -75,7 +81,7 @@ drop _freq
 */
 
 	
-* 2. Parse Address
+** 2. Standardize PATSTAT Firm Address
 
 	* 2-1. Remove Dong, Eup, Myeon, and some other redundant names
 	replace person_add = subinstr(person_add, " -" ,"-", .)
@@ -145,13 +151,12 @@ drop _freq
 	*/
 	
 	
-* 3. Clean data and save the result
-	keep person_id psn_name stn_*
-	compress
-	save PAT_Matching_FirmList, replace
+** 3. Clean and Save Standardized PATSTAT firm name and address
+
 	contract psn_name stn_*
+	compress
 	drop _f
-	gen fid_pat=_n
+	gen fid_pat=_n		// Firm IDs in PATSTAT
 	order fid_pat
 	save PAT_ENGname_Standardized, replace
 */
